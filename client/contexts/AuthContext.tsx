@@ -22,12 +22,8 @@ const getRedirectUrl = () => {
     return 'http://localhost:19006/callback';
   }
   
-  // For development in Expo Go
-  const redirectUri = makeRedirectUri({
-    scheme: 'healthpal',
-    path: 'callback',
-    preferLocalhost: true,
-  });
+  // For development in Expo Go using your specific IP
+  const redirectUri = `exp://10.25.12.190:19000/--/callback`;
   
   console.log('Generated Redirect URI:', redirectUri);
   return redirectUri;
