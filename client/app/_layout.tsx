@@ -12,9 +12,9 @@ function RootLayoutNav() {
     return null; // Or a loading screen
   }
 
-  // if (!user) {
-  //   return <SignInScreen />;
-  // }
+  if (!user) {
+    return <SignInScreen />;
+  }
 
   return (
     <Stack>

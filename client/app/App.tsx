@@ -1,14 +1,9 @@
-
 import { Toaster } from "@/components/ui/toaster";
 import { Toaster as Sonner } from "@/components/ui/sonner";
 import { TooltipProvider } from "@/components/ui/tooltip";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { BrowserRouter, Routes, Route } from "react-router-dom";
 import { XPProvider } from "@/contexts/XPContext";
-import Index from "./pages/Index";
-import Course from "./pages/Course";
-import Lesson from "./pages/Lesson";
-import NotFound from "./pages/NotFound";
+import { Stack } from "expo-router";
 
 const queryClient = new QueryClient();
 
@@ -18,14 +13,11 @@ const App = () => (
       <TooltipProvider>
         <Toaster />
         <Sonner />
-        <BrowserRouter>
-          <Routes>
-            <Route path="/" element={<Index />} />
-            <Route path="/course/:courseId" element={<Course />} />
-            <Route path="/course/:courseId/lesson/:lessonId" element={<Lesson />} />
-            <Route path="*" element={<NotFound />} />
-          </Routes>
-        </BrowserRouter>
+        <Stack>
+          <Stack.Screen name="index" options={{ headerShown: false }} />
+          <Stack.Screen name="course/[courseId]" options={{ headerShown: false }} />
+          <Stack.Screen name="course/[courseId]/lesson/[lessonId]" options={{ headerShown: false }} />
+        </Stack>
       </TooltipProvider>
     </XPProvider>
   </QueryClientProvider>
