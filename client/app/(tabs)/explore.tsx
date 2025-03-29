@@ -1,109 +1,140 @@
-import { StyleSheet, Image, Platform } from 'react-native';
+import React, { useEffect, useState } from "react";
+import { StyleSheet, FlatList, Image, ActivityIndicator } from "react-native";
+import axios from "axios";
 
-import { Collapsible } from '@/components/Collapsible';
-import { ExternalLink } from '@/components/ExternalLink';
-import ParallaxScrollView from '@/components/ParallaxScrollView';
-import { ThemedText } from '@/components/ThemedText';
-import { ThemedView } from '@/components/ThemedView';
-import { IconSymbol } from '@/components/ui/IconSymbol';
+import { ThemedText } from "@/components/ThemedText";
+import { ThemedView } from "@/components/ThemedView";
+
+// wallet address from .env
+const WALLET_ADDRESS = "0x76a57aAE6077d6631B38499cb01Bb4121a212050";
+
+type NFT = {
+  id: string;
+  name: string;
+  description?: string;
+  image?: string;
+};
 
 export default function TabTwoScreen() {
-  return (
-    <ParallaxScrollView
-      headerBackgroundColor={{ light: '#D0D0D0', dark: '#353636' }}
-      headerImage={
-        <IconSymbol
-          size={310}
-          color="#808080"
-          name="chevron.left.forwardslash.chevron.right"
-          style={styles.headerImage}
+  const [nfts, setNfts] = useState<NFT[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchNFTs = async () => {
+      try {
+        setLoading(true);
+
+        // make API call to backend to fetch NFTs (dummy for now)
+        const response = await axios.get(`/api/nfts?wallet=${WALLET_ADDRESS}`);
+
+        setNfts(response.data);
+      } catch (err) {
+        console.error("Error fetching NFTs:", err);
+        setError("Failed to load NFTs. Please try again later.");
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchNFTs();
+  }, []);
+
+  const renderNFTItem = ({ item }: { item: NFT }) => (
+    <ThemedView style={styles.nftCard}>
+      {item.image ? (
+        <Image
+          source={{ uri: item.image }}
+          style={styles.nftImage}
+          resizeMode="cover"
         />
-      }>
-      <ThemedView style={styles.titleContainer}>
-        <ThemedText type="title">Explore</ThemedText>
+      ) : (
+        <ThemedView style={styles.placeholderImage}>
+          <ThemedText>No Image</ThemedText>
+        </ThemedView>
+      )}
+      <ThemedView style={styles.nftInfo}>
+        <ThemedText type="defaultSemiBold">
+          {item.name || "Unnamed NFT"}
+        </ThemedText>
+        {item.description && (
+          <ThemedText numberOfLines={2}>{item.description}</ThemedText>
+        )}
       </ThemedView>
-      <ThemedText>This app includes example code to help you get started.</ThemedText>
-      <Collapsible title="File-based routing">
-        <ThemedText>
-          This app has two screens:{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/index.tsx</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">app/(tabs)/explore.tsx</ThemedText>
+    </ThemedView>
+  );
+
+  return (
+    <ThemedView style={styles.container}>
+      <ThemedText type="title" style={styles.title}>
+        My NFT Collection
+      </ThemedText>
+      <ThemedText style={styles.walletAddress}>
+        Wallet: {WALLET_ADDRESS}
+      </ThemedText>
+
+      {loading ? (
+        <ActivityIndicator size="large" />
+      ) : error ? (
+        <ThemedText style={styles.errorText}>{error}</ThemedText>
+      ) : nfts.length === 0 ? (
+        <ThemedText style={styles.emptyText}>
+          No NFTs found in this wallet
         </ThemedText>
-        <ThemedText>
-          The layout file in <ThemedText type="defaultSemiBold">app/(tabs)/_layout.tsx</ThemedText>{' '}
-          sets up the tab navigator.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/router/introduction">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Android, iOS, and web support">
-        <ThemedText>
-          You can open this project on Android, iOS, and the web. To open the web version, press{' '}
-          <ThemedText type="defaultSemiBold">w</ThemedText> in the terminal running this project.
-        </ThemedText>
-      </Collapsible>
-      <Collapsible title="Images">
-        <ThemedText>
-          For static images, you can use the <ThemedText type="defaultSemiBold">@2x</ThemedText> and{' '}
-          <ThemedText type="defaultSemiBold">@3x</ThemedText> suffixes to provide files for
-          different screen densities
-        </ThemedText>
-        <Image source={require('@/assets/images/react-logo.png')} style={{ alignSelf: 'center' }} />
-        <ExternalLink href="https://reactnative.dev/docs/images">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Custom fonts">
-        <ThemedText>
-          Open <ThemedText type="defaultSemiBold">app/_layout.tsx</ThemedText> to see how to load{' '}
-          <ThemedText style={{ fontFamily: 'SpaceMono' }}>
-            custom fonts such as this one.
-          </ThemedText>
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/versions/latest/sdk/font">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Light and dark mode components">
-        <ThemedText>
-          This template has light and dark mode support. The{' '}
-          <ThemedText type="defaultSemiBold">useColorScheme()</ThemedText> hook lets you inspect
-          what the user's current color scheme is, and so you can adjust UI colors accordingly.
-        </ThemedText>
-        <ExternalLink href="https://docs.expo.dev/develop/user-interface/color-themes/">
-          <ThemedText type="link">Learn more</ThemedText>
-        </ExternalLink>
-      </Collapsible>
-      <Collapsible title="Animations">
-        <ThemedText>
-          This template includes an example of an animated component. The{' '}
-          <ThemedText type="defaultSemiBold">components/HelloWave.tsx</ThemedText> component uses
-          the powerful <ThemedText type="defaultSemiBold">react-native-reanimated</ThemedText>{' '}
-          library to create a waving hand animation.
-        </ThemedText>
-        {Platform.select({
-          ios: (
-            <ThemedText>
-              The <ThemedText type="defaultSemiBold">components/ParallaxScrollView.tsx</ThemedText>{' '}
-              component provides a parallax effect for the header image.
-            </ThemedText>
-          ),
-        })}
-      </Collapsible>
-    </ParallaxScrollView>
+      ) : (
+        <FlatList
+          data={nfts}
+          renderItem={renderNFTItem}
+          keyExtractor={(item) => item.id}
+          contentContainerStyle={styles.list}
+        />
+      )}
+    </ThemedView>
   );
 }
 
 const styles = StyleSheet.create({
-  headerImage: {
-    color: '#808080',
-    bottom: -90,
-    left: -35,
-    position: 'absolute',
+  container: {
+    flex: 1,
+    padding: 16,
   },
-  titleContainer: {
-    flexDirection: 'row',
-    gap: 8,
+  title: {
+    marginBottom: 8,
+  },
+  walletAddress: {
+    marginBottom: 16,
+    fontSize: 12,
+  },
+  list: {
+    gap: 16,
+  },
+  nftCard: {
+    borderRadius: 12,
+    overflow: "hidden",
+    borderWidth: 1,
+    borderColor: "#ccc",
+  },
+  nftImage: {
+    width: "100%",
+    height: 200,
+  },
+  placeholderImage: {
+    width: "100%",
+    height: 200,
+    justifyContent: "center",
+    alignItems: "center",
+    backgroundColor: "#f0f0f0",
+  },
+  nftInfo: {
+    padding: 12,
+  },
+  errorText: {
+    color: "red",
+    textAlign: "center",
+    marginTop: 20,
+  },
+  emptyText: {
+    textAlign: "center",
+    marginTop: 20,
   },
 });

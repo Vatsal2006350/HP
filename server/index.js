@@ -1,31 +1,29 @@
 const express = require('express');
 const cors = require('cors');
 const morgan = require('morgan');
+const connectDB = require('./config/database');
 const achievementsRoutes = require('./routes/achievements');
+
+// connect to MongoDB
+connectDB();
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 
+// middleware
 app.use(cors());
-app.use(morgan('dev'));
 app.use(express.json());
+app.use(morgan('dev'));
 
-
-app.get('/', (req, res) => {
-  res.send('api is running');
-});
-
+// routes
 app.use('/api/achievements', achievementsRoutes);
 
-app.use((req, res, next) => {
-  res.status(404).json({ message: 'Route not found' });
+// basic route
+app.get('/', (req, res) => {
+  res.send('Achievement NFT API is running');
 });
 
-app.use((err, req, res, next) => {
-  console.error(err.stack);
-  res.status(500).json({ message: 'Internal server error' });
-});
-
+// start server
 app.listen(PORT, () => {
   console.log(`Server running on port ${PORT}`);
 }); 
