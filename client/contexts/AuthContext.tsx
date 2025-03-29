@@ -2,39 +2,52 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 import * as WebBrowser from 'expo-web-browser';
 import { makeRedirectUri, useAuthRequest, ResponseType } from 'expo-auth-session';
 import { AUTH0_CONFIG, AUTH0_SCOPES } from '../config/auth0';
-import Constants from 'expo-constants';
 import { Platform } from 'react-native';
+import { router } from 'expo-router';
 
+// Initialize WebBrowser for auth session
 WebBrowser.maybeCompleteAuthSession();
 
+interface User {
+  sub: string;
+  email?: string;
+  name?: string;
+  picture?: string;
+}
+
 interface AuthContextType {
-  user: any | null;
+  user: User | null;
   isLoading: boolean;
   signIn: () => Promise<void>;
-  signOut: () => void;
+  signOut: () => Promise<void>;
+  handleCallback: (code: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Get the redirect URL based on the platform and environment
-const getRedirectUrl = () => {
-  if (Platform.OS === 'web') {
-    return 'http://localhost:19006/callback';
-  }
-  
-  // For development in Expo Go using your specific IP
-  const redirectUri = `exp://10.25.12.190:19000/--/callback`;
-  
-  console.log('Generated Redirect URI:', redirectUri);
-  return redirectUri;
-};
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-  const [user, setUser] = useState<any | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(null);
+  const [isLoading, setIsLoading] = useState(false);
+  const [isRouterReady, setIsRouterReady] = useState(false);
 
-  const redirectUri = getRedirectUrl();
+  // Pre-define a valid redirect URI
+  const redirectUri = Platform.OS === 'web' 
+    ? 'http://localhost:8081/callback'
+    : makeRedirectUri({
+        scheme: 'exp',
+        path: 'callback',
+      });
+  
+  console.log('Using redirectUri:', redirectUri);
 
+  // Configure Auth0 endpoints
+  const authConfig = {
+    authorizationEndpoint: `https://${AUTH0_CONFIG.domain}/authorize`,
+    tokenEndpoint: `https://${AUTH0_CONFIG.domain}/oauth/token`,
+    revocationEndpoint: `https://${AUTH0_CONFIG.domain}/oauth/revoke`,
+  };
+
+  // Set up authentication request
   const [request, response, promptAsync] = useAuthRequest(
     {
       clientId: AUTH0_CONFIG.clientId,
@@ -42,42 +55,136 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       responseType: ResponseType.Code,
       scopes: AUTH0_SCOPES,
       extraParams: {
-        nonce: 'nonce'
+        nonce: 'nonce',
       },
     },
-    {
-      authorizationEndpoint: `https://${AUTH0_CONFIG.domain}/authorize`,
-      tokenEndpoint: `https://${AUTH0_CONFIG.domain}/oauth/token`,
-    }
+    authConfig
   );
 
+  // Exchange authorization code for access token
+  const exchangeCodeForToken = async (code: string) => {
+    try {
+      console.log('Exchanging code for token...');
+      const tokenResponse = await fetch(`https://${AUTH0_CONFIG.domain}/oauth/token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          grant_type: 'authorization_code',
+          client_id: AUTH0_CONFIG.clientId,
+          client_secret: AUTH0_CONFIG.clientSecret,
+          code,
+          redirect_uri: redirectUri,
+        }),
+      });
+
+      if (!tokenResponse.ok) {
+        const errorData = await tokenResponse.json();
+        console.error('Token exchange error:', errorData);
+        throw new Error('Failed to exchange code for token');
+      }
+
+      const data = await tokenResponse.json();
+      console.log('Token received successfully');
+      return data.access_token;
+    } catch (error) {
+      console.error('Error exchanging code for token:', error);
+      throw error;
+    }
+  };
+
+  // Fetch user information using access token
+  const fetchUserInfo = async (accessToken: string) => {
+    try {
+      console.log('Fetching user info...');
+      const userInfoResponse = await fetch(`https://${AUTH0_CONFIG.domain}/userinfo`, {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      });
+
+      if (!userInfoResponse.ok) {
+        throw new Error('Failed to fetch user info');
+      }
+
+      const userInfo = await userInfoResponse.json();
+      console.log('User info received:', userInfo);
+      return userInfo;
+    } catch (error) {
+      console.error('Error fetching user info:', error);
+      throw error;
+    }
+  };
+
+  // Wait for router to be ready
   useEffect(() => {
-    checkSession();
+    // This will run after the component is mounted fully
+    setIsRouterReady(true);
   }, []);
 
+  // Handle authentication response from expo-auth-session
   useEffect(() => {
-    if (response?.type === 'success') {
+    if (response?.type === 'success' && isRouterReady) {
+      console.log('Auth response success, processing code...');
       const { code } = response.params;
-      // Here you would typically exchange the code for tokens
-      // For now, we'll just set a mock user
-      setUser({ id: '1', name: 'Test User' });
+      handleAuthenticationSuccess(code);
     } else if (response?.type === 'error') {
       console.error('Auth response error:', response.error);
     }
-  }, [response]);
+  }, [response, isRouterReady]);
 
-  const checkSession = async () => {
+  // This is called from the callback page
+  const handleCallback = async (code: string) => {
+    if (code) {
+      console.log('Processing auth code from callback page');
+      await handleAuthenticationSuccess(code);
+    }
+  };
+
+  // Process authentication success
+  const handleAuthenticationSuccess = async (code: string) => {
     try {
-      setIsLoading(false);
+      setIsLoading(true);
+      const accessToken = await exchangeCodeForToken(code);
+      const userInfo = await fetchUserInfo(accessToken);
+      setUser(userInfo);
+      
+      // Wait until the next tick to ensure the navigator is ready
+      setTimeout(() => {
+        router.replace('/(tabs)');
+      }, 300);
     } catch (error) {
-      console.error('Error checking session:', error);
+      console.error('Error handling authentication:', error);
+      
+      // Wait until the next tick to ensure the navigator is ready
+      setTimeout(() => {
+        router.replace('/');
+      }, 300);
+    } finally {
       setIsLoading(false);
     }
   };
 
+  // Sign in function
   const signIn = async () => {
     try {
       console.log('Starting auth with redirect URI:', redirectUri);
+      
+      // For web, directly redirect to Auth0
+      if (Platform.OS === 'web') {
+        const authUrl = new URL(authConfig.authorizationEndpoint);
+        authUrl.searchParams.append('client_id', AUTH0_CONFIG.clientId);
+        authUrl.searchParams.append('redirect_uri', redirectUri);
+        authUrl.searchParams.append('response_type', 'code');
+        authUrl.searchParams.append('scope', AUTH0_SCOPES.join(' '));
+        authUrl.searchParams.append('nonce', 'nonce');
+        
+        window.location.href = authUrl.toString();
+        return;
+      }
+      
+      // For mobile, use the expo-auth-session flow
       const result = await promptAsync();
       console.log('Auth result:', result);
     } catch (error) {
@@ -85,12 +192,27 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
-  const signOut = () => {
-    setUser(null);
+  // Sign out function
+  const signOut = async () => {
+    try {
+      setUser(null);
+      
+      // Redirect to Auth0 logout
+      const returnTo = encodeURIComponent('http://localhost:8081');
+      const logoutUrl = `https://${AUTH0_CONFIG.domain}/v2/logout?client_id=${AUTH0_CONFIG.clientId}&returnTo=${returnTo}`;
+      
+      if (Platform.OS === 'web') {
+        window.location.href = logoutUrl;
+      } else {
+        await WebBrowser.openBrowserAsync(logoutUrl);
+      }
+    } catch (error) {
+      console.error('Error signing out:', error);
+    }
   };
 
   return (
-    <AuthContext.Provider value={{ user, isLoading, signIn, signOut }}>
+    <AuthContext.Provider value={{ user, isLoading, signIn, signOut, handleCallback }}>
       {children}
     </AuthContext.Provider>
   );
