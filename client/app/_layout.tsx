@@ -4,6 +4,8 @@ import { StatusBar } from 'expo-status-bar';
 import { AuthProvider } from '../contexts/AuthContext';
 import { useAuth } from '../contexts/AuthContext';
 import SignInScreen from '../components/SignInScreen';
+import Dashboard from './(tabs)/dashboard';
+import '../global.css';
 
 function RootLayoutNav() {
   const { user, isLoading } = useAuth();
@@ -13,7 +15,7 @@ function RootLayoutNav() {
   }
 
   if (!user) {
-    return <SignInScreen />;
+    return <Dashboard />;
   }
 
   return (
