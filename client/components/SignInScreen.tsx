@@ -78,7 +78,7 @@ const SignInScreen = () => {
                     <ActivityIndicator color="#3b5998" />
                   ) : (
                     <Text style={styles.signInButtonText}>
-                      Sign In with Auth0
+                      Sign In
                     </Text>
                   )}
                 </TouchableOpacity>
